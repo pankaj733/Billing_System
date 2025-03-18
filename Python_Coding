@@ -1,0 +1,86 @@
+import sys
+import mysql.connector
+from PySide2.QtWidgets import (QApplication, QWidget, QVBoxLayout, QFormLayout,
+                               QLineEdit, QPushButton, QLabel, QListWidget)
+
+class BillingApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+        self.db_connection = self.connect_to_db()
+
+    def initUI(self):
+        self.setWindowTitle("Billing System")
+
+        layout = QVBoxLayout()
+        form_layout = QFormLayout()
+
+        self.name_input = QLineEdit()
+        self.email_input = QLineEdit()
+        self.amount_input = QLineEdit()
+
+        form_layout.addRow("Customer Name:", self.name_input)
+        form_layout.addRow("Customer Email:", self.email_input)
+        form_layout.addRow("Bill Amount:", self.amount_input)
+
+        self.submit_button = QPushButton("Submit")
+        self.submit_button.clicked.connect(self.submit_data)
+
+        self.retrieve_button = QPushButton("Retrieve Bills")
+        self.retrieve_button.clicked.connect(self.retrieve_data)
+
+        self.result_list = QListWidget()
+
+        layout.addLayout(form_layout)
+        layout.addWidget(self.submit_button)
+        layout.addWidget(self.retrieve_button)
+        layout.addWidget(self.result_list)
+
+        self.setLayout(layout)
+
+    def connect_to_db(self):
+        return mysql.connector.connect(
+            host="localhost",
+            user="your_username",
+            password="your_password",
+            database="billing_system"
+        )
+
+    def submit_data(self):
+        name = self.name_input.text()
+        email = self.email_input.text()
+        amount = self.amount_input.text()
+
+        cursor = self.db_connection.cursor()
+
+        # Insert customer
+        cursor.execute("INSERT INTO customers (name, email) VALUES (%s, %s)", (name, email))
+        customer_id = cursor.lastrowid
+
+        # Insert bill
+        cursor.execute("INSERT INTO bills (customer_id, amount) VALUES (%s, %s)", (customer_id, amount))
+
+        self.db_connection.commit()
+        cursor.close()
+
+        self.name_input.clear()
+        self.email_input.clear()
+        self.amount_input.clear()
+
+    def retrieve_data(self):
+        cursor = self.db_connection.cursor()
+        cursor.execute("SELECT c.name, c.email, b.amount, b.date FROM bills b JOIN customers c ON b.customer_id = c.id")
+        bills = cursor.fetchall()
+        self.result_list.clear()
+
+        for bill in bills:
+            self.result_list.addItem(f"Customer: {bill[0]}, Email: {bill[1]}, Amount: {bill[2]}, Date: {bill[3]}")
+
+        cursor.close()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = BillingApp()
+    window.resize(400, 300)
+    window.show()
+    sys.exit(app.exec_())
